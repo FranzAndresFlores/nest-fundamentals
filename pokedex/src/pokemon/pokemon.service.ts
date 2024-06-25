@@ -1,6 +1,6 @@
-import { BadRequestException, Injectable, InternalServerErrorException } from '@nestjs/common';
+import { BadRequestException, Injectable, InternalServerErrorException, NotFoundException } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
-import { Model } from 'mongoose';
+import { isValidObjectId, Model } from 'mongoose';
 
 import { CreatePokemonDto } from './dto/create-pokemon.dto';
 import { UpdatePokemonDto } from './dto/update-pokemon.dto';
@@ -21,20 +21,43 @@ export class PokemonService {
       return pokemon;
     } catch (error) {
       if (error.code === 11000) {
-        throw new BadRequestException(`Pokemon existe en db ${ JSON.stringify(error.keyValue)}`);
+        throw new BadRequestException(`Pokemon existe en db ${JSON.stringify(error.keyValue)}`);
       }
       console.log(error);
       throw new InternalServerErrorException('No se puedo crear el registro - revisar la consola');
     }
-
   }
 
   findAll() {
     return `This action returns all pokemon`;
   }
 
-  findOne(id: number) {
-    return `This action returns a #${id} pokemon`;
+  async findOne(term: string) {
+    try {
+      let pokemon: Pokemon;
+
+      if (!isNaN(+term)) {
+        pokemon = await this.pokemonModel.findOne({ no: term });
+        return pokemon;
+      }
+
+      if (isValidObjectId(term)) {
+        pokemon = await this.pokemonModel.findById(term);
+        return pokemon;
+      }
+
+      if (!pokemon) {
+        pokemon = await this.pokemonModel.findOne({ name: term.toLowerCase().trim() })
+        return pokemon;
+      }
+
+      if (!pokemon) {
+        throw new NotFoundException(`Pokemon con identificador ${term} no fue encontrado`);
+      }
+    } catch (error) {
+      console.log(error);
+      throw new InternalServerErrorException('No se puedo obtener el registro - revisar la consola');
+    }
   }
 
   update(id: number, updatePokemonDto: UpdatePokemonDto) {
